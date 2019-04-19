@@ -19,9 +19,10 @@ import pandas as pd
 import math
 
 # File location
-file_location = "C:\\Users\\Sebastian\\Desktop\\Coding\\HowFarCanIGo\\"
+file_location = "C:\\Users\\Sebastian\\Desktop\\GitHub\\HowFarCanIGo\\"
 
 # Set up API key and client key
+API_key_location = 'C:\\Users\\Sebastian\\Desktop\\Documents\\API_keys'
 API_key = "my_api_key"
 # set up client key
 gmaps = googlemaps.Client(key=API_key)
