@@ -18,14 +18,15 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import math
 
-# File location
-file_location = "C:\\Users\\Sebastian\\Desktop\\GitHub\\HowFarCanIGo\\"
-
-# Set up API key and client key
-API_key_location = 'C:\\Users\\Sebastian\\Desktop\\Documents\\API_keys'
-API_key = "my_api_key"
-# set up client key
+# File location to save files
+os.chdir("C:\\Users\\Sebastian\\Desktop\\GitHub\\HowFarCanIGo\\")
+# Find API key
+with open(os.getcwd()+"\\api_key.txt", 'r+') as f:
+    API_key = f.readline()
+# Set up client key
 gmaps = googlemaps.Client(key=API_key)
+
+#%%
 
 # Set date and time as 22nd October 2018 (Monday), 9am
 departure_time = dt.datetime.strptime("2018-11-19-09-00", '%Y-%m-%d-%H-%M')
