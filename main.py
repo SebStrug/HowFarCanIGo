@@ -7,6 +7,7 @@
 ###########
 
 # Imports, set up api key and client key
+import os
 import googlemaps
 from gmplot import gmplot
 import datetime as dt
@@ -17,6 +18,8 @@ import geopy.distance
 import matplotlib.pyplot as plt
 import pandas as pd
 import math
+import requests
+import polyline
 
 # File location to save files
 os.chdir("C:\\Users\\Sebastian\\Desktop\\GitHub\\HowFarCanIGo\\")
@@ -29,18 +32,60 @@ gmaps = googlemaps.Client(key=API_key)
 #%%
 
 # Set date and time as 22nd October 2018 (Monday), 9am
-departure_time = dt.datetime.strptime("2018-11-19-09-00", '%Y-%m-%d-%H-%M')
+departure_time = dt.datetime.strptime("2019-04-19-09-00", '%Y-%m-%d-%H-%M')
 tme = departure_time.time()
 date = departure_time.date()
 print(date, tme) 
 
 # Retrieve latitude and longitude of my house
-home_string = "50 Mount Pleasant Road, W5 1SQ, London, England"
+with open(os.getcwd()+"\\home_address.txt","r+") as f:
+    home_string = f.readline()
 home_loc = gmaps.geocode(home_string)  
 home_lat = home_loc[0]["geometry"]["location"]["lat"]
 home_lng = home_loc[0]["geometry"]["location"]["lng"]
 home_coords = zip([home_lat, home_lng])
 print(home_string, home_lat, home_lng)
+
+#%%
+# Try using a folium map
+m = folium.Map(location=[home_lat, home_lng], zoom_start=13)
+m.save(os.path.join(os.getcwd(), 'folium_map.html'))
+
+#%%
+#distance matrix
+
+coords_1 = (52.2296756, 21.0122287)
+coords_2 = (53.2296767, 22.0122302)
+coords_3 = (coords_2[0]+1, coords_2[1]+1)
+
+#response = requests.get(full_string)
+#data = response.json()
+def build_params(origin_lat, origin_lng, dest_lat, dest_lng):
+    params = {"origin_lat":str(origin_lat), 
+              "origin_lng":str(origin_lng), 
+              "dest_lat":str(dest_lat), 
+              "dest_lng":str(dest_lng)}
+    return params
+
+def build_api_string(params):
+    url = "https://maps.googleapis.com/maps/api/distancematrix/json?"
+    url += "origins="+params['origin_lat']+","+params['origin_lng']
+    url += "&destinations="+params['dest_lat']+","+params['dest_lng']
+    url += "&key="+API_key
+    return url
+
+def return_time(url_):
+    response = requests.get(url_)
+    data = response.json()
+    timeNumber = data["rows"][0]["elements"][0]["duration"]["value"]
+    hours_parse = int(time.strftime("%H", time.localtime(timeNumber))) # return hours
+    mins_parse = int(time.strftime("%M", time.localtime(timeNumber))) # return minutes
+    secs_parse = int(time.strftime("%S", time.localtime(timeNumber)))
+    return hours_parse, mins_parse, secs_parse
+
+
+
+
 
 #%%
 ######################
@@ -59,16 +104,7 @@ def travel_time_to_loc(origin, destination, travel_mode, departure_time_):
     secs_parse = int(time.strftime("%S", time.localtime(timeNumber)))
     return directions_result, timeNumber, time_parse, hours_parse, mins_parse, secs_parse
 
-# Creates a lattice of points centred around an origin location
-# Create a lattice made of 2N points on a google map centred around my house
-def create_lattice(N, lat_multiplier, lng_multiplier, origin_lat, origin_lng):
-    lattice_lats = []*N
-    lattice_lngs = []*N
-    for i in range(-N,N):
-        for j in range(-N,N):
-            lattice_lats.append(origin_lat + (i*lat_multiplier))
-            lattice_lngs.append(origin_lng + (j*lng_multiplier))
-    return lattice_lats, lattice_lngs
+
 
 def calculate_coords(dest_lats, dest_lngs, origin_lat, origin_lng, travel_mode, departure_time, cutoff_time_):
     # Want to save places that are less than our cutoff time in a new list
