@@ -15,45 +15,49 @@ with open(os.getcwd()+"\\api_key.txt", 'r+') as f:
 # Set up client key
 gmaps = googlemaps.Client(key=API_key)
 
-# Date and time must be current or in the future for the api
-departure = mf.next_best_date()
-print('Departure date and time: ', departure.date(), departure.time()) 
-# google distance api takes a departure time in seconds since epoch
-departure_s = str(int((departure-datetime.datetime(1970,1,1)).total_seconds()))
 # information about home address
-home_string, home_lat, home_lng = mf.home_address()
+home_string, home_lat, home_lng = mf.retrieve_home_address()
 print(home_string, home_lat, home_lng)
 
-# Grid of points based on maximum latitude/longitude. N is number of points in grid.
-# N must be a multiple of 10 to split it later
-N = 50
-lats, lngs = mf.max_grid(50)
-lats, lngs = mf.local_grid(home_lat, home_lng, 50)
+max_lat = 51.612907 # Enfield
+min_lat = 51.373126 # Croydon
+min_lng = -0.496954 # Heathrow
+max_lng = 0.071722 # Barking ting
+travel_mode = 'transit' #'walking'
+map_type = 'local' # local or global
+N=20
 
-mf.draw_map(home_lat, home_lng, lats, lngs)
-travel_times = mf.retrieve_travel_times(API_key, 
-					  home_lat, home_lng,
-                      lats, lngs,
-                      departure_s,
-                      mode='walking')
+pickle_path = 'data_mode{}_map{}_N{}.p'.format(travel_mode, map_type, N)
+
+import pickle
+def draw_map(map_type_, home_lat=0, home_lng=0, N=0, 
+			 max_lat=51.612907, min_lat=51.373126, 
+			 max_lng=-0.496954, min_lng=0.071722, 
+			 travel_mode_='walking'):
+	pickle_path = 'data_mode{}_map{}_N{}.p'.format(travel_mode_, map_type_, N)
+	if os.path.exists(pickle_path):
+		print('Reading in from pickled file...')
+		travel_data = pickle.load(open(pickle_path, 'rb'))
+		return travel_data[0], travel_data[1], travel_data[2]
+	if map_type_ == 'local':
+	    lats, lngs = mf.local_grid(home_lat, home_lng, N)
+	elif map_type == 'global':
+	    lats, lngs = mf.max_grid(N, max_lat, min_lat, max_lng, min_lng)
+	else: 
+		raise ValueError('Map type must be either "local" or "global"')
+	mf.draw_map(home_lat, home_lng, lats, lngs)
+	travel_times = mf.retrieve_travel_times(API_key, home_lat, home_lng,
+						                      lats, lngs,
+						                      mode=travel_mode)
+	pickle.dump([lats, lngs, travel_times], open(pickle_path, 'wb'))
+	return lats, lngs, travel_times
+
+lats, lngs, travel_times = draw_map(map_type, home_lat, home_lng, N, max_lat, min_lat, max_lng, min_lng)
 
 cutoff_mins = [0,5,10,15,20,30,60, 90, 120]
 binned_coords = mf.bin_coords(lats, lngs, travel_times, cutoff_mins)
 
-# now we need to find an edge to each of these so we can shade them appropriately
-# make the mpl plot (no fill yet)
-fig, ax = plt.subplots()
-for val in binned_coords.keys():
-	print('Calculating cut off minute: ', cutoff_mins[val-1])
-	# Create the concave hull object
-	concave_hull = hulls.ConcaveHull(binned_coords[val])
-	# Calculate the concave hull array
-	hull_array = concave_hull.calculate()
-	try: 
-		ax.fill(hull_array[:,0], hull_array[:,1], color='b', alpha=0.2)
-	except:
-		print('No hull array for cutoff minute ', cutoff_mins[val-1])
-fig.show()
+mf.plot_coords.show()
 	 
 
 
