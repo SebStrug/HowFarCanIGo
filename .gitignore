@@ -1,6 +1,6 @@
 api_key.txt
 home_address.txt
 folium_map.html
-*.p # all pickled files
+*.p
 *.pyc
 Tube_Station_Coords*

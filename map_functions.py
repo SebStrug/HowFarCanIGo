@@ -5,6 +5,10 @@ import numpy as np
 import datetime as dt
 import requests
 import polyline
+import pickle
+import matplotlib.pyplot as plt
+import seaborn as sns; sns.set()
+import hulls
 
 def retrieve_home_address():
     """
@@ -30,28 +34,44 @@ def retrieve_home_address():
             home_lng = float(home_coords.split(',')[1])
     return home_string, home_lat, home_lng
 
-# Draw map
-def draw_map(home_lat, home_lng, lat_list, lng_list):
+def draw_map(API_key, map_type_, home_lat=0, home_lng=0, N=0, 
+             max_lat=51.612907, min_lat=51.373126, 
+             max_lng=-0.496954, min_lng=0.071722, 
+             travel_mode_='walking'):
     """ 
     Draw map as html page
 
     Generates map of London around origin address with given points
 
-    :param map_type: 'local' or 'global' (see max_grid and local_grid)
-    :param home_lat: latitude of origin address
-    :param home_lng: longitude of origin address
-    :param lat_list: list of destination latitudes
-    :param lng_list: list of destination longitudes
-    :return: None
+    :param map_type_: 'local' or 'global' (see max_grid and local_grid)
+    :param home_lat: latitude of origin address if using local map
+    :param home_lng: longitude of origin address if using local map
+    :param max_lat: maximum latitude used if using global map
+    :param min_lat: minimum latitude used if using global map
+    :param max_lng: maximum longitude used if using global map
+    :param min_lng: minimum longitude used if using global map
+    :param travel_mode: type of travel used "walking" or "transit"
+    :return: list of latitudes, list of longitudes, list of travel times to each coord pair
     """
 
-    m = folium.Map(location=[home_lat, home_lng])
-    feature_group = folium.FeatureGroup("Locations")
-    for lat, lng in zip(lat_list, lng_list):
-        feature_group.add_child(folium.Marker(location=[lat, lng]))
-    m.add_child(feature_group)
-    m.save(os.path.join(os.getcwd(), 'folium_map.html'))
-    return
+    # define a path for either reading data from or writing to, to save future google api calls
+    pickle_path = 'data_mode{}_map{}_N{}.p'.format(travel_mode_, map_type_, N)
+    if os.path.exists(pickle_path):
+        print('Reading in from pickled file...')
+        travel_data = pickle.load(open(pickle_path, 'rb')) # load in data if it exists
+        return travel_data[0], travel_data[1], travel_data[2]
+    if map_type_ == 'local':
+        lats, lngs = local_grid(home_lat, home_lng, N)
+    elif map_type_ == 'global':
+        lats, lngs = max_grid(N, max_lat, min_lat, max_lng, min_lng)
+    else: 
+        raise ValueError('Map type must be either "local" or "global"')
+    # find times using api for how long it takes to travel to each coordinate pair
+    travel_times = retrieve_travel_times(API_key, home_lat, home_lng,
+                                              lats, lngs,
+                                              mode=travel_mode_)
+    pickle.dump([lats, lngs, travel_times], open(pickle_path, 'wb'))
+    return lats, lngs, travel_times
 
 def max_grid(N, max_lat, min_lat, max_lng, min_lng):
     """
@@ -72,12 +92,6 @@ def max_grid(N, max_lat, min_lat, max_lng, min_lng):
     x = np.linspace(min_lat, max_lat, N)
     y = np.linspace(min_lng, max_lng, N)
     xv, yv = np.meshgrid(x, y)
-    # # How can I turn it from a grid into a circle?? -> do I want to??
-    # x0 = (max(x) - min(x))/2 + min(x)
-    # y0 = (max(y) - min(y))/2 + min(y)
-    # r = np.sqrt((xv - x0)**2 + (yv - y0)**2)
-    # xv[r < (max(x) - min(x))/2] = 9999
-    # yv[r < (max(y) - min(y))/2] = 9999
     return xv.flatten(), yv.flatten()
 
 def local_grid(home_lat_, home_lng_, N, lat_multiplier=0.002, lng_multiplier=0.003):
@@ -105,7 +119,9 @@ def next_best_date():
 
     :return: datetime object for 9am on the next nearest datetime
     """
-    date_today = dt.date.today()
+    date_today = dt.datetime.today()
+    if date_today.hour > 9:
+        date_today += dt.timedelta(days=1)
     if date_today.weekday() == 5:
         date_today += dt.timedelta(days=2)
     elif date_today.weekday() == 6:
@@ -157,7 +173,16 @@ def retrieve_travel_times(API_key, home_lat_, home_lng_,
     all_travel_times = [] 
     for chunk in range(len(lats_list)):
         data = _build_url(lats_list[chunk], lngs_list[chunk])
-        travel_times = [elements['duration']['value'] for elements in data['rows'][0]['elements']]
+        print('Chunk index: ', chunk, ' status: ', data['status'])
+        travel_times = []
+        for index, element in  enumerate(data['rows'][0]['elements']): #always the 0th element of data['rows']
+            if element['status'] != 'OK':
+                print(lats_list[chunk][index], lngs_list[chunk][index], element)
+                lats_list[chunk][index].pop()
+                lngs_list[chunk][index].pop()
+            else:
+                travel_times.append(element['duration']['value'])
+        break
         all_travel_times = np.concatenate((all_travel_times, travel_times))
     assert len(destination_lats) == len(all_travel_times), 'Different number of coordinates ({}), to travel times ({})'.format(len(destination_lats), len(all_travel_times))
     return all_travel_times
@@ -187,7 +212,10 @@ def bin_coords(lats_, lngs_, travel_times_, cutoff_mins_):
             original_key = key
             while key > min(dictionary_.keys()):
                 key -= 1
-                dictionary_[original_key] = np.concatenate((dictionary_[original_key], dictionary_[key]))
+                try:
+                    dictionary_[original_key] = np.concatenate((dictionary_[original_key], dictionary_[key]))
+                except:
+                    pass # may not necessarily be one less key
         return dictionary_
 
     # convert seconds to minutes for travel time
