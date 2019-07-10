@@ -1,14 +1,10 @@
 import os
-import googlemaps
-import folium
 import numpy as np
 import datetime as dt
 import requests
 import polyline
 import pickle
-import matplotlib.pyplot as plt
-import seaborn as sns; sns.set()
-import hulls
+import folium
 
 def retrieve_home_address():
     """
@@ -34,7 +30,7 @@ def retrieve_home_address():
             home_lng = float(home_coords.split(',')[1])
     return home_string, home_lat, home_lng
 
-def draw_map(API_key, map_type_, home_lat=0, home_lng=0, N=0, 
+def generate_points(API_key, map_type_, home_lat=0, home_lng=0, N=0, 
              max_lat=51.612907, min_lat=51.373126, 
              max_lng=-0.496954, min_lng=0.071722, 
              travel_mode_='walking'):
@@ -61,19 +57,19 @@ def draw_map(API_key, map_type_, home_lat=0, home_lng=0, N=0,
         travel_data = pickle.load(open(pickle_path, 'rb')) # load in data if it exists
         return travel_data[0], travel_data[1], travel_data[2]
     if map_type_ == 'local':
-        lats, lngs = local_grid(home_lat, home_lng, N)
+        lats, lngs = draw_local_grid(home_lat, home_lng, N)
     elif map_type_ == 'global':
-        lats, lngs = max_grid(N, max_lat, min_lat, max_lng, min_lng)
+        lats, lngs = draw_max_grid(N, max_lat, min_lat, max_lng, min_lng)
     else: 
         raise ValueError('Map type must be either "local" or "global"')
     # find times using api for how long it takes to travel to each coordinate pair
-    travel_times = retrieve_travel_times(API_key, home_lat, home_lng,
-                                              lats, lngs,
-                                              mode=travel_mode_)
+    lats, lngs, travel_times = retrieve_travel_times(API_key, home_lat, home_lng,
+                                                      lats, lngs,
+                                                      mode=travel_mode_)
     pickle.dump([lats, lngs, travel_times], open(pickle_path, 'wb'))
     return lats, lngs, travel_times
 
-def max_grid(N, max_lat, min_lat, max_lng, min_lng):
+def draw_max_grid(N, max_lat, min_lat, max_lng, min_lng):
     """
     Return a lattice of points for all of London
 
@@ -94,7 +90,7 @@ def max_grid(N, max_lat, min_lat, max_lng, min_lng):
     xv, yv = np.meshgrid(x, y)
     return xv.flatten(), yv.flatten()
 
-def local_grid(home_lat_, home_lng_, N, lat_multiplier=0.002, lng_multiplier=0.003):
+def draw_local_grid(home_lat_, home_lng_, N, lat_multiplier=0.002, lng_multiplier=0.003):
     """
     Return a lattice of points around origin coordinates
 
@@ -165,6 +161,7 @@ def retrieve_travel_times(API_key, home_lat_, home_lng_,
         return requests.get(url).json()
 
     departure_time = next_best_date()
+    # this 100 value is used later to multiply the chunks -> use variable instead?
     assert (len(destination_lats)/100).is_integer(), 'Total number of coordinates must be divisible by 100, number of coordinates is {}'.format(N)
     # we are limited to 100 requests per api so must split up our coordinates
     lats_list = np.split(destination_lats, len(destination_lats)//100)
@@ -175,84 +172,38 @@ def retrieve_travel_times(API_key, home_lat_, home_lng_,
         data = _build_url(lats_list[chunk], lngs_list[chunk])
         print('Chunk index: ', chunk, ' status: ', data['status'])
         travel_times = []
-        for index, element in  enumerate(data['rows'][0]['elements']): #always the 0th element of data['rows']
-            if element['status'] != 'OK':
+        bad_indices = []
+        for index, element in  enumerate(data['rows'][0]['elements']):
+            if element['status'] != 'OK': # some areas are inaccessible via walking (places in Heathrow airport)
                 print(lats_list[chunk][index], lngs_list[chunk][index], element)
-                lats_list[chunk][index].pop()
-                lngs_list[chunk][index].pop()
+                # can return the string of this bad lat/lng with the api if we want
+                bad_indices.append(index)
             else:
                 travel_times.append(element['duration']['value'])
-        break
+        # delete elements with a bad status, as no information was returned for these
+        destination_lats = np.delete(destination_lats, chunk*100 + np.asarray(bad_indices))
+        destination_lngs = np.delete(destination_lngs, chunk*100 + np.asarray(bad_indices))
         all_travel_times = np.concatenate((all_travel_times, travel_times))
     assert len(destination_lats) == len(all_travel_times), 'Different number of coordinates ({}), to travel times ({})'.format(len(destination_lats), len(all_travel_times))
-    return all_travel_times
+    return destination_lats, destination_lngs, all_travel_times
 
-def bin_coords(lats_, lngs_, travel_times_, cutoff_mins_):
+def add_cutoff_points(map_object, cutoff_points_, layer_name, line_color, fill_color, weight, text):
+    """Draw all islands in a cutoff minute set to a folium map object
+
+    :param map_object: folium map object
+    :param cutoff_points_: list of numpy arrays containing the concave hull arrays for an island in the cutoff time
+    :param layer_name: name of the cutoff layer
+    :param line_color: color of the edge of the polygon to draw
+    :param fill_color: color of the fill of the polygon to draw
+    :param weight: weight of the polygon edge to draw
+    :param text: FUTURE:: to remove?
+    :return: folium map object
     """
-    Bin coordinates into groups using cut off times
-
-    Coordinates are separated by travel times. For example coordinates may be split into buckets of coordinates that 
-    take 0-5 mins, 5-10mins, etc. time to travel to, using whatever mode was provided.
-
-    :param lats_: list of latitude coordinates of destinations
-    :param lngs_: list of longitude coordinates of destinations
-    :param travel_times_: list of times taken to arrive at each coordinate pair
-    :param cutoff_mins_: list of cutoff times
-
-    :return: dictionary of coordinates associated up to each cutoff-time
-    """
-
-    def _make_dict_cumulative(dictionary_):
-        """
-        Makes each key in dictionary contain all values in previous key
-        :param dictionary_: dict with a list at each key
-        :return: dict with each key containing list containing all values of previous keys
-        """
-        for key in dictionary_.keys():
-            original_key = key
-            while key > min(dictionary_.keys()):
-                key -= 1
-                try:
-                    dictionary_[original_key] = np.concatenate((dictionary_[original_key], dictionary_[key]))
-                except:
-                    pass # may not necessarily be one less key
-        return dictionary_
-
-    # convert seconds to minutes for travel time
-    travel_times_mins = [round(i/60, 1) for i in travel_times_]
-    # bin the data
-    inds = np.digitize(travel_times_mins, np.array(cutoff_mins_))
-    # initialise an empty dictionary
-    ttime_dict = dict.fromkeys(np.unique(inds))
-
-    # numpy array of lats and lngs together
-    lat_lng = np.asarray(list(zip(lats_,lngs_)))
-    for ind in np.unique(inds):
-        # find indices of each bin, and apply a mask
-        bin_mask = np.where(inds==ind)[0]
-        bin_lat_lng = lat_lng[bin_mask]
-        ttime_dict[ind] = bin_lat_lng
-
-    return _make_dict_cumulative(ttime_dict)
-
-def plot_coords(binned_coords, cutoff_mins):
-    """
-    Plot coords with travel time areas
-
-    Plot the list of coordinates with no map, using the travel times to shade areas appropriately.
-
-    :param binned_coords: dictionary of travel time indices with coordinates attached to them
-    :param cutoff_mins: list of cutoff times in minutes
-    """
-    fig, ax = plt.subplots()
-    for val in binned_coords.keys():
-        print('Calculating cut off minute: ', cutoff_mins[val-1])
-        # Create the concave hull object
-        concave_hull = hulls.ConcaveHull(binned_coords[val])
-        # Calculate the concave hull array
-        hull_array = concave_hull.calculate()
-        try: 
-            ax.fill(hull_array[:,0], hull_array[:,1], color='b', alpha=0.2)
-        except:
-            print('No hull array for cutoff minute ', cutoff_mins[val-1])
-    return fig
+    fg = folium.FeatureGroup(name=layer_name) # create a feature group
+    # now add all the polygons in this cutoff time to the feature group
+    for island_index, island_points in enumerate(cutoff_points):
+        island_points = np.fliplr(island_points) # flip axis so we get long,lat tuple
+        fg.add_child(folium.vector_layers.Polygon(locations=island_points, color=line_color, fill_color=fill_color,
+                                              weight=weight)) #, popup=(folium.Popup(text)))
+        map_object.add_child(fg)
+    return(map_object)
