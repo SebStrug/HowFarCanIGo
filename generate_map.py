@@ -184,26 +184,5 @@ def retrieve_travel_times(API_key, home_lat_, home_lng_,
         destination_lats = np.delete(destination_lats, chunk*100 + np.asarray(bad_indices))
         destination_lngs = np.delete(destination_lngs, chunk*100 + np.asarray(bad_indices))
         all_travel_times = np.concatenate((all_travel_times, travel_times))
-    assert len(destination_lats) == len(all_travel_times), 'Different number of coordinates ({}), to travel times ({})'.format(len(destination_lats), len(all_travel_times))
+        print(len(destination_lats), len(all_travel_times))
     return destination_lats, destination_lngs, all_travel_times
-
-def add_cutoff_points(map_object, cutoff_points_, layer_name, line_color, fill_color, weight, text):
-    """Draw all islands in a cutoff minute set to a folium map object
-
-    :param map_object: folium map object
-    :param cutoff_points_: list of numpy arrays containing the concave hull arrays for an island in the cutoff time
-    :param layer_name: name of the cutoff layer
-    :param line_color: color of the edge of the polygon to draw
-    :param fill_color: color of the fill of the polygon to draw
-    :param weight: weight of the polygon edge to draw
-    :param text: FUTURE:: to remove?
-    :return: folium map object
-    """
-    fg = folium.FeatureGroup(name=layer_name) # create a feature group
-    # now add all the polygons in this cutoff time to the feature group
-    for island_index, island_points in enumerate(cutoff_points):
-        island_points = np.fliplr(island_points) # flip axis so we get long,lat tuple
-        fg.add_child(folium.vector_layers.Polygon(locations=island_points, color=line_color, fill_color=fill_color,
-                                              weight=weight)) #, popup=(folium.Popup(text)))
-        map_object.add_child(fg)
-    return(map_object)

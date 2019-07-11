@@ -11,7 +11,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns; sns.set()
 
+### NOT TAKING IN ALL COORDS PROPERLY
+### NEED TO GROUP IN CHUNK INDICES OF 100 TO STOP IT FROM CRASHING
+####
+
 ## Add home marker to map, and maybe tube stops, play with having more layers etc.
+## Options to pickle those hull arrays since they take so long to generate
+## Options to draw map or just generate points
+## Really smash it and draw loads of points
 
 # Retrieve API key
 with open(os.getcwd()+"\\api_key.txt", 'r+') as f:
@@ -29,16 +36,19 @@ min_lat = 51.373126 # Croydon source of quality breadknives
 min_lng = -0.496954 # Heathrow LHR mans always here
 max_lng = 0.071722 # Barking ting
 travel_mode = 'transit' #'walking'
-map_type = 'local' # local or global
-N = 100
+map_type = 'global' # local or global
+N = 200
 cutoff_mins = [0, 10, 20, 30, 45, 60, 75, 60*1.5, 60*2, 60*3]
 
 lats, lngs, travel_times = gen_map.generate_points(API_key, map_type, home_lat, home_lng, N, max_lat, min_lat, max_lng, min_lng, travel_mode)
+assert len(lats) == len(travel_times), 'Different number of coordinates ({}), to travel times ({})'.format(len(lats), len(travel_times))
+
 binned_coords = draw_map.bin_coords_by_cutoff(lats, lngs, travel_times, cutoff_mins)
 print('Number of values associated with each cut-off time:')
 for val in range(1,len(cutoff_mins)):
     print('Cutoff time: ', cutoff_mins[val], ', Number of points: ', len(binned_coords[val]))
-cutoff_hull_arrays = draw_map.generate_hull_arrays(binned_coords, 3)
+num_bins = 4
+cutoff_hull_arrays = draw_map.generate_hull_arrays(binned_coords, num_bins)
 
 
 # Draw the map in a matplot graph
@@ -59,11 +69,10 @@ my_map.save('new_map.html')
 
 def draw_points(map_object, list_of_points, layer_name, line_color, fill_color, text):
 	"""FUTURE: IMPROVE, DOCUMENT, MAKE USABLE"""
-    fg = folium.FeatureGroup(name=layer_name)
-    for point in list_of_points:
-        fg.add_child(folium.CircleMarker(point, radius=1, color=line_color, fill_color=fill_color,
-                                         popup=(folium.Popup(text))))
-    map_object.add_child(fg)
+	fg = folium.FeatureGroup(name=layer_name)
+	for point in list_of_points:
+		fg.add_child(folium.CircleMarker(point, radius=1, color=line_color, fill_color=fill_color,popup=(folium.Popup(text))))
+	map_object.add_child(fg)
 
 
 
