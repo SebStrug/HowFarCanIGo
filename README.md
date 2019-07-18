@@ -1,6 +1,6 @@
 # HowFarCanIGo
 
-![Map of London showing how far I can travel from my home in Ealing for set cut-off times](https://raw.githubusercontent.com/SebStrug/HowFarCanIGo/map_London.jpg)
+![Map of London showing how far I can travel from my home in Ealing for set cut-off times](./map_London.JPG)
 
 Create a personalised map showing how far you can go for set distances of time using the Google API
 
