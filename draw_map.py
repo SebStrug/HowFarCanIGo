@@ -2,7 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns; sns.set()
 import hulls
+import folium
 from sklearn.cluster import DBSCAN
+import matplotlib
 
 def bin_coords_by_cutoff(lats_, lngs_, travel_times_, cutoff_mins_):
     """
@@ -130,6 +132,7 @@ def generate_hull_arrays(b_coords, num_bins=-1):
         islands = cluster_points(b_coords[key])
         island_hull_arrays = [] # initialise empty array to store all hull arrays for this island
         for point_set in islands.keys():
+            print('\t Processing cluster {} of {}'.format(point_set+1, len(islands.keys())))
             if point_set == -1:
                 raise ValueError('POINT SET -1')
                 continue
@@ -158,9 +161,55 @@ def add_cutoff_points(map_object, cutoff_points_, layer_name, line_color, fill_c
     """
     fg = folium.FeatureGroup(name=layer_name) # create a feature group
     # now add all the polygons in this cutoff time to the feature group
-    for island_index, island_points in enumerate(cutoff_points):
+    for island_index, island_points in enumerate(cutoff_points_):
+        if island_points is None: continue
         island_points = np.fliplr(island_points) # flip axis so we get long,lat tuple
         fg.add_child(folium.vector_layers.Polygon(locations=island_points, color=line_color, fill_color=fill_color,
                                               weight=weight)) #, popup=(folium.Popup(text)))
         map_object.add_child(fg)
     return(map_object)
+
+def draw_python_graph(cutoff_hull_arrays_):
+    """Draw the map in a Matplotlib graph for convenient display
+
+    :param list cutoff_hull_arrays: list of cutoff points as lists of island clusters
+    :return: matplotlib figure
+    """
+
+    fig, ax = plt.subplots()
+    # loop through points associated with each cut off time
+    for cutoff_index, cutoff_points in enumerate(cutoff_hull_arrays_):
+        # loop through each island in each cutoff time
+        for island_index, island_points in enumerate(cutoff_points):
+            if island_points is None: continue
+            ax.fill(island_points[:,0], island_points[:,1], color='b', alpha=0.4)
+    return fig
+
+# Draw the map in a folium map
+def draw_folium_map(home_lat, home_lng, cutoff_hull_arrays_, cutoff_mins_, cmap):
+    """Draw the map as a html object using folium
+
+    :param float home_lat: latitude of the origin
+    :param float home_lng: longitude of the origin
+    :param list cutoff_hull_arrays_: list of lists containing points grouped into cutoff times and islands
+    :param list cutoff_mins_: list containing the cutoff times in minutes
+    :param colormap cmap: colormap used to shade in the map
+    :return: None
+    """
+
+    my_map = folium.Map(location=[home_lat, home_lng], zoom_start=10) # Initialize map at origin with zoom level
+    colormap = [matplotlib.colors.rgb2hex(i) for i in cmap] # convert RGB to hexcode for folium
+    for cutoff_index, cutoff_points in enumerate(cutoff_hull_arrays_):
+        if cutoff_index == len(cutoff_hull_arrays_): continue # skip last one as this is jsut all points
+        add_cutoff_points(my_map, cutoff_points, layer_name='Cutoff {} mins'.format(cutoff_mins_[cutoff_index]),
+                                    line_color='black' # colormap[cutoff_index] may work
+                                    ,fill_color=colormap[cutoff_index], weight=1, text='foo')
+    folium.LayerControl(collapsed=False).add_to(my_map) # Add layer control and show map
+    my_map.save('new_map.html')
+
+def draw_points(map_object, list_of_points, layer_name, line_color, fill_color, text):
+    """FUTURE: IMPROVE, DOCUMENT, MAKE USABLE"""
+    fg = folium.FeatureGroup(name=layer_name)
+    for point in list_of_points:
+        fg.add_child(folium.CircleMarker(point, radius=1, color=line_color, fill_color=fill_color,popup=(folium.Popup(text))))
+    map_object.add_child(fg)

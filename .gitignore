@@ -1,6 +1,7 @@
 api_key.txt
 home_address.txt
-folium_map.html
+*.html
 *.p
 *.pyc
+*.png
 Tube_Station_Coords*
