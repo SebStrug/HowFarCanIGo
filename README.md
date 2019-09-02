@@ -1,22 +1,23 @@
 # HowFarCanIGo
 
-![Map of London showing how far I can travel from my home in Ealing for set cut-off times](./map_London.JPG)
+![Map of London showing how far I can travel from my home in Ealing for set cut-off times](./docs/map_London.JPG)
 
 Create a personalised map showing how far you can go for set distances of time using the Google API
 
-
-To use:
-	git clone https://github.com/SebStrug/HowFarCanIGo
-	cd `path/to/project`
-	pip install .
-	python howfarcanigo/main.py
-
-	Note:
-		Windows users will have to install Shapely separately via Anaconda: `conda install Shapely`
-			or by downloading the wheel here: http://www.lfd.uci.edu/~gohlke/pythonlibs/#shapely `Shapely‑1.6.4.post1‑cp35‑cp35m‑win_amd64.whl`
+## To use:
+```
+git clone https://github.com/SebStrug/HowFarCanIGo
+cd /path/to/project
+pip install .
+python howfarcanigo/main.py
+```
+Windows users will have to install Shapely separately via Anaconda: `conda install Shapely`
+	or by downloading the wheel here: http://www.lfd.uci.edu/~gohlke/pythonlibs/#shapely, choosing, `Shapely‑1.6.4.post1‑cp35‑cp35m‑win_amd64.whl`,
 			and launching the install with `pip install Shapely‑1.6.4.post1‑cp35‑cp35m‑win_amd64.whl`
 
-For custom use, configure howfarcanigo/config.py with:
+## For custom use:
+Save configExample.py as config.py with custom settings.
+Options include:
 1. A Google API key
 2. A home/origin address as a string in a text file labelled 'home_address.txt'
     You can also put your latitude and longitude in the line below, separated by a comma, to minimise Google API calls.
