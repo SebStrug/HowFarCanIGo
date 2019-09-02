@@ -4,16 +4,28 @@
 
 Create a personalised map showing how far you can go for set distances of time using the Google API
 
+
 To use:
-1. Set up a Google API key and store it in a text file labelled 'api_key.txt', or just paste it into your code directly
-2. Put your home/origin address as a string in a text file labelled 'home_address.txt'
+	git clone https://github.com/SebStrug/HowFarCanIGo
+	cd `path/to/project`
+	pip install .
+	python howfarcanigo/main.py
+
+	Note:
+		Windows users will have to install Shapely separately via Anaconda: `conda install Shapely`
+			or by downloading the wheel here: http://www.lfd.uci.edu/~gohlke/pythonlibs/#shapely `Shapely‑1.6.4.post1‑cp35‑cp35m‑win_amd64.whl`
+			and launching the install with `pip install Shapely‑1.6.4.post1‑cp35‑cp35m‑win_amd64.whl`
+
+For custom use, configure howfarcanigo/config.py with:
+1. A Google API key
+2. A home/origin address as a string in a text file labelled 'home_address.txt'
     You can also put your latitude and longitude in the line below, separated by a comma, to minimise Google API calls.
-3. () Define your maximum and minimum latitudes and longitudes if using the global version of the map
-4. Define whether you want to see walking or transit (public transport data)
-5. Choose whether you want a local map (branching outwards from your origin), or a global map (looking at points across a space defined by your maximum and minimum coordinates).
-6. Define how many points you want to query. Start from a small number e.g. 10, as a lattice is formed of N squared points.
+4. A `travel mode`: walking or transit (public transport data)
+5. A local map (branching outwards from your origin), or a global map (looking at points across a space defined by your maximum and minimum coordinates).
+	with corresponding minimum/maximum coordinates if using a global map
+6. The number of points you want to query. Start from a small number e.g. 10, as a lattice is formed of N squared points.
     Not been tested for > 200 points.
-7. Define your cutoff times in minutes as a list
-8. () Define a custom colormap if so interested.
+7. Your cutoff times in minutes as a list
+8. Define a custom colormap if so interested.
 
 Enjoy!

@@ -1,6 +1,0 @@
-Process:
-Got stuck at finding map
-Got stuck with api
-got stuck with concave hull
-got stuck at clustering
-	tried kmeans, GMM, dimensionalily reduction, coding own DBSCAN

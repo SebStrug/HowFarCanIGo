@@ -1,7 +1,9 @@
-api_key.txt
-home_address.txt
+config.py
+__pycache__
+data.*
 *.html
-*.p
+*map*.p
 *.pyc
 *.png
 Tube_Station_Coords*
+*.lnk

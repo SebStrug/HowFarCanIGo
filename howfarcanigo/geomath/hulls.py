@@ -1,4 +1,4 @@
-## all credit to joaofig on Github (joaofig/uk-accidents/geomath/hulls.py)
+## all credit to joaofig on Github (https://github.com/joaofig/uk-accidents)
 import numpy as np
 import math
 from shapely.geometry import asPoint
