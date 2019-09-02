@@ -17,12 +17,12 @@ Windows users will have to install Shapely separately via Anaconda: `conda insta
 
 ## For custom use:
 Save configExample.py as config.py with custom settings.
-Options include:
+
+Parameters for custom runs:
 1. A Google API key
-2. A home/origin address as a string in a text file labelled 'home_address.txt'
-    You can also put your latitude and longitude in the line below, separated by a comma, to minimise Google API calls.
-4. A `travel mode`: walking or transit (public transport data)
-5. A local map (branching outwards from your origin), or a global map (looking at points across a space defined by your maximum and minimum coordinates).
+2. An origin address as a string OR a latitude and longitude
+3. A travel mode: walking or transit (public transport data)
+4. A local map (branching outwards from your origin), or a global map (looking at points across a space defined by your maximum and minimum coordinates).
 	with corresponding minimum/maximum coordinates if using a global map
 6. The number of points you want to query. Start from a small number e.g. 10, as a lattice is formed of N squared points.
     Not been tested for > 200 points.
