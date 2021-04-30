@@ -33,7 +33,7 @@ setup(
     packages=find_packages(exclude=['docs', 'tests']), 
     python_requires='>=3.5',
 
-    install_requires=['googlemaps==3.1.1', 'requests==2.22.0', 'chardet==3.0.4', 'idna==2.8', 'urllib3==1.25.3', \
+    install_requires=['googlemaps==3.1.1', 'requests==2.22.0', 'chardet==3.0.4', 'idna==2.8', 'urllib3==1.25.8', \
                         'folium', 'matplotlib', 'seaborn', \
                         ##(ipython) 'ipython', 'parso', 'jedi', 'pygments', 'ipython-genutils', \   
                         'numpy', 'datetime', 'requests', \
